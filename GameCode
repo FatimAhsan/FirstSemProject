@@ -1,0 +1,593 @@
+#include<allegro5\allegro.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<time.h>//timer
+#include<math.h>
+#include<allegro5\allegro_image.h>//image library
+#include<allegro5\allegro_font.h>//text
+#include<allegro5\allegro_ttf.h>//fonts
+#include<allegro5\allegro_primitives.h>//primitives
+#include<allegro5\allegro_acodec.h>//sound/audio library
+#include<allegro5\allegro_audio.h>//sound/audio library
+float dist;
+struct enem
+{
+ float x;
+ int y;
+ bool dir;
+ ALLEGRO_BITMAP* bitmap;//iniit bitmap
+};
+int collision(int x, int y, int playerx, int playery);
+void main()
+{
+ enem enemy[30];
+ ALLEGRO_EVENT_QUEUE* queue;//init queue
+ ALLEGRO_TIMER* timer;//init timer
+ ALLEGRO_DISPLAY* display = NULL;//init display
+ ALLEGRO_DISPLAY_MODE disp_data;
+ ALLEGRO_BITMAP* bg;//iniit bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* player;//iniit bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* attack;//init bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* platform;//init bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* start;//init bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* exit;//init bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* level;//init bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* lockedlevel;//init bitmap
+ al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+ ALLEGRO_BITMAP* back;//init bitmapv
+ ALLEGRO_SAMPLE* sample = NULL;
+ ALLEGRO_SAMPLE_INSTANCE* sampleinstance = NULL;
+ al_init();//start prog
+ al_get_display_mode(al_get_num_display_modes() - 1, &disp_data);
+ al_set_new_display_flags(ALLEGRO_WINDOWED);//game window type
+ display = al_create_display(disp_data.width, disp_data.height);
+ //audio
+ al_install_audio();
+ al_init_acodec_addon();
+ al_reserve_samples(1);
+ sample = al_load_sample("game.mp3");
+ //init queue for events
+ queue = al_create_event_queue();
+ //timer for fps
+ timer = al_create_timer(2 / 10);//frame per sec
+ al_install_keyboard();
+ al_install_mouse();
+ al_register_event_source(queue, al_get_keyboard_event_source());
+ al_register_event_source(queue, al_get_display_event_source(display));
+ al_register_event_source(queue, al_get_timer_event_source(timer));
+ al_register_event_source(queue, al_get_mouse_event_source());
+ al_init_image_addon();//image load init
+ //load all bitmaps
+ int i;
+ for (i = 0; i < 27; i++);
+ {
+ enemy[i].bitmap = al_load_bitmap("enemy.png");
+ }
+ bg = al_load_bitmap("bg.png");
+ player = al_load_bitmap("player.png");
+ attack = al_load_bitmap("attack.png");
+ platform = al_load_bitmap("platform.png");
+ start = al_load_bitmap("start.png");
+ exit = al_load_bitmap("exit.png");
+ level = al_load_bitmap("level.png");
+ lockedlevel = al_load_bitmap("lockedlevel.png");
+ back = al_load_bitmap("back.png");
+ al_init_font_addon();
+ al_init_ttf_addon();
+ al_init_primitives_addon();// primitives deals with multiple enemies
+ ALLEGRO_FONT* font = al_load_font("arial.ttf", 50, NULL);//init font
+ // variables
+ float width = al_get_display_width(display), playerx = 200, playery = 520, bgx = 0, attackx =
+width, attacky = 0;
+ i = 0;
+ int platx = 500, platy = 460, life = 100, score = 0, highscore = 0, change, j = 0, levelx, levely,
+locked[13] = { 0 }, row = 1, amountofenemies;
+ //int change;
+ bool running = true, jumped = false, fire = false, left = false, right = true, game = false, menu =
+true, levels = false, gameover = false, popup = true;
+ al_start_timer(timer);
+ al_play_sample(sample, 0.1, 0.0, 1.0, ALLEGRO_PLAYMODE_LOOP, NULL);
+ while (running)//game running
+ {
+ al_flush_event_queue(queue);
+ ALLEGRO_MOUSE_STATE state;
+ al_get_mouse_state(&state);
+ if (menu == true)
+ {
+ al_draw_bitmap(bg, bgx, 0, 0);
+ al_draw_bitmap(start, 800, 300, 0);
+ al_draw_bitmap(exit, 800, 400, 0);
+ al_draw_bitmap(player, playerx, playery, 0);
+ ALLEGRO_EVENT ev;
+ al_wait_for_event(queue, &ev);//add events to queue
+ if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE)//close prog
+ {
+ running = false;
+ menu = false;
+ break;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 800 && state.x <= 1168
+&& state.y > 300 and state.y < 400)
+ {
+ levels = true;
+ menu = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 800 && state.x <= 1000
+&& state.y > 400 and state.y < 500)
+ {
+ running = false;
+ game = false;
+ break;
+ }
+ al_flip_display();
+ }
+ else if (levels)
+ {
+ al_draw_bitmap(bg, bgx, 0, 0);
+ al_draw_bitmap(back, 50, 30, 0);
+ if (score > highscore)
+ highscore = score;
+ for (i = 0; i < 12; i++)
+ {
+ levelx = 50;
+ if (i > 6)
+ levely = 400;
+ else
+ levely = 100;
+ for (j = 0; j < 1300; )
+ {
+ al_draw_bitmap(lockedlevel, levelx + j, levely, 0);
+ j += 220;
+ }
+ }
+ j = 0;
+ if (highscore >= 0)
+ {
+ al_draw_bitmap(level, levelx + j, 100, 0);
+ j += 220;
+ if (highscore > 4)
+ {
+ al_draw_bitmap(level, levelx + j, 100, 0);
+ j += 220;
+ if (highscore >= 10)
+ {
+ al_draw_bitmap(level, levelx + j, 100, 0);
+ j += 220;
+ if (highscore >= 15)
+ {
+ al_draw_bitmap(level, levelx + j, 100, 0);
+ j += 220;
+ if (highscore > 20)
+ {
+ al_draw_bitmap(level, levelx + j, 100,
+0);
+ j += 220;
+ if (highscore > 25)
+ {
+ al_draw_bitmap(level, levelx +
+j, 100, 0);
+ j = 0;
+ if (highscore > 30)
+ {
+ al_draw_bitmap(level,
+levelx + j, 400, 0);
+ j += 220;
+ if (highscore > 35)
+ {
+
+ al_draw_bitmap(level, levelx + j, 400, 0);
+ j += 220;
+ if (highscore >
+40)
+ {
+
+ al_draw_bitmap(level, levelx + j, 400, 0);
+ j +=
+220;
+ if
+(highscore > 45)
+ {
+
+ al_draw_bitmap(level, levelx + j, 400, 0);
+ j += 220;
+ if (highscore > 50)
+ {
+
+ al_draw_bitmap(level, levelx + j, 400, 0);
+
+j += 220;
+ if (highscore > 55)
+ {
+ al_draw_bitmap(level, levelx + j, 400, 0);
+ }
+
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ }
+ // game variables that need to be the same
+ for (i = 0; i < 27; i++)
+ {
+ enemy[i].bitmap = al_load_bitmap("enemy.png");
+ enemy[i].dir = false;
+ enemy[i].x = width - 60 + i * 100;
+ if (i % 2 == 0)
+ {
+ enemy[i].x = 0 - i * 100;
+ enemy[i].dir = true;
+ }
+ enemy[i].y = 572;
+ }
+ life = 100;
+ playerx = 200;
+ playery = 520;
+ score = 0;
+ gameover = false;
+ //events on level screen
+ ALLEGRO_EVENT ev;
+ al_wait_for_event(queue, &ev);//add events to queue
+ if (popup)//new level popup
+ {
+ if (highscore <5)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 1 .. Press Enter..");
+ else if (highscore >=5 && highscore <10)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 2 .. Press Enter..");
+ else if (highscore >= 10 && highscore < 15)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 3 .. Press Enter..");
+ else if (highscore >= 15 && highscore < 20)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 4 .. Press Enter..");
+ else if (highscore >= 20 && highscore < 25)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 5 .. Press Enter..");
+ else if (highscore >= 25 && highscore < 30)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 6 .. Press Enter..");
+ else if (highscore >= 30 && highscore < 35)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 7 .. Press Enter..");
+ else if (highscore >= 35 && highscore < 40)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 8 .. Press Enter..");
+ else if (highscore >= 40 && highscore < 45)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 9 .. Press Enter..");
+ else if (highscore >= 45 && highscore < 50)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 10 .. Press Enter..");
+ else if (highscore >= 50 && highscore < 55)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 11 .. Press Enter..");
+ else if (highscore > 55)
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 250, 300, NULL,
+"Recent level unlocked!: 12 .. Press Enter..");
+ ALLEGRO_KEYBOARD_STATE keyState;
+ al_get_keyboard_state(&keyState);
+ if (al_key_down(&keyState, ALLEGRO_KEY_ENTER))
+ popup = false;
+ }
+ else
+ {
+ if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE)//close prog
+ {
+ running = false;
+ break;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 50 && state.x
+<= 130 && state.y > 50 and state.y < 110)
+ {
+ menu = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 50 && state.x
+<= 200 && state.y > 100 and state.y < 250)//level 1
+ {
+ amountofenemies = 5;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 270 && state.x
+<= 420 && state.y > 100 and state.y < 250 && highscore > 4)//level2
+ {
+ amountofenemies = 7;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 490 && state.x
+<= 610 && state.y > 100 and state.y < 250 && highscore > 10)//level3
+ {
+ amountofenemies = 9;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 710 && state.x
+<= 860 && state.y > 100 and state.y < 250 && highscore > 15)//level 4
+ {
+ amountofenemies = 11;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 930 && state.x
+<= 1080 && state.y > 100 and state.y < 250 && highscore > 20)//level5
+ {
+ amountofenemies = 13;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 1150 && state.x
+<= 1300 && state.y > 100 and state.y < 250 && highscore > 25)//level6
+ {
+ amountofenemies = 15;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 50 && state.x
+<= 200 && state.y > 400 and state.y < 550 && highscore > 30)//;evel7
+ {
+ amountofenemies = 17;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 270 && state.x
+<= 420 && state.y > 400 and state.y < 550 && highscore > 35)//level8
+ {
+ amountofenemies = 19;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 490 && state.x
+<= 610 && state.y > 400 and state.y < 550 && highscore > 40)//level9
+ {
+ amountofenemies = 21;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 710 && state.x
+<= 860 && state.y > 400 and state.y < 550 && highscore > 45)//level0
+ {
+ amountofenemies = 23;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 930 && state.x
+<= 1080 && state.y > 400 and state.y < 550 && highscore > 50)//level1
+ {
+ amountofenemies = 25;
+ game = true;
+ levels = false;
+ }
+ else if (al_mouse_button_down(&state, 1) && state.x > 1150 && state.x
+<= 1300 && state.y > 400 and state.y < 550 && highscore > 5)//level12
+ {
+ amountofenemies = 27;
+ game = true;
+ levels = false;
+ }
+ }
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 500, 30, NULL, "Highscore :
+%d", highscore);
+ al_flip_display();
+ }
+ else if (game)
+ {
+ menu = false;
+ levels = false;
+ al_flush_event_queue(queue);
+ ALLEGRO_EVENT ev;
+ al_wait_for_event(queue, &ev);//add events to queue
+ if (ev.type == ALLEGRO_EVENT_DISPLAY_CLOSE)//close prog
+ {
+ running = false;
+ game = false;
+ break;
+ }
+ else if (ev.type == ALLEGRO_EVENT_TIMER)
+ {
+ if (fire == true)
+ {
+ if (right)
+ attackx += 0.8;
+ if (left)
+ attackx -= 0.8;
+ }
+ if (jumped == true)//jump and fall back down
+ {
+ if (change <= 400)
+ {
+ playery -= 0.5;
+ change++;
+ }
+ if (change >= 400)
+ {
+ if (playery > platy - 100)
+ {
+ if (playerx > platx - 55)
+ {
+ if (playerx < platx + 218)
+ playery = platy - 100;
+ }
+ }
+ if (change <= 800)
+ {
+ playery += 0.5;
+ change++;
+ }
+ }
+ if (change == 800)
+ jumped = false;
+ }
+ }
+ ALLEGRO_KEYBOARD_STATE keyState;
+ al_get_keyboard_state(&keyState);
+ if (al_key_down(&keyState, ALLEGRO_KEY_RIGHT))
+ {
+ left = false;
+ right = true;
+ playerx += 0.5;
+ }
+ if (al_key_down(&keyState, ALLEGRO_KEY_LEFT))
+ {
+ right = false;
+ left = true;
+ playerx -= 0.5;
+ }
+ if (al_key_down(&keyState, ALLEGRO_KEY_SPACE))
+ {
+ if (fire == false)
+ {
+ attackx = playerx;
+ attacky = playery + 60;
+ fire = true;
+ }
+ if (gameover == true)
+ {
+ popup = true;
+ levels = true;
+ game = false;
+ }
+ }
+ if (al_key_down(&keyState, ALLEGRO_KEY_UP))
+ {
+ if (jumped == false)
+ {
+ jumped = true;
+ change = 0;
+ }
+ }
+ if (playery != 520 && jumped == false)//fall from platform
+ {
+ if ((playerx < platx - 55) || (playerx > platx + 218))
+ {
+ if (playery < 520)
+ {
+ playery += 0.5;
+ change++;
+ }
+ }
+ }
+ for (i = 0; i < amountofenemies; i++)//statements for all enemies in one go
+ {
+ if (enemy[i].dir == false)//enemy direction left
+ {
+ enemy[i].x -= 0.2;
+ if (enemy[i].x < 0)
+ enemy[i].dir = true;
+ }
+ else if (enemy[i].dir == true)//enemy directions right
+ {
+ enemy[i].x += 0.2;
+ if (enemy[i].x > width - 60)
+ enemy[i].dir = false;
+ }
+ if (collision(enemy[i].x, enemy[i].y, attackx, attacky))//attack hits enemy
+ {
+ enemy[i].x = width;
+ if (i % 2 == 0)
+ {
+ enemy[i].x = 0;
+ }
+ score++;
+ fire = false;
+ attackx = width;
+ attacky = 0;
+ }
+ if (collision(enemy[i].x, enemy[i].y, playerx, playery + 40))//player
+enemy collision
+ {
+ life -= 10;
+ if (i % 2 == 0)
+ {
+ playerx += 20;
+ }
+ else
+ playerx -= 20;
+ }
+ }
+ if (attackx >= width || attackx < 0)//attack moves out of screen
+ {
+ fire = false;
+ attackx = width;
+ attacky = 0;
+ }
+ if (playerx > width - 50)//stop player from going over the screen
+ playerx = width - 50;
+ if (playerx < 0)
+ playerx = 0;
+ if (playery > 520)
+ playerx = 520;
+ if (playery < 0)
+ playery = 0;
+ if (life <= 0)
+ gameover = true;
+ if (gameover == true)
+ {
+ al_clear_to_color(al_map_rgba_f(0, 100, 100, 1));
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 500, 300, NULL, "
+Game Over!");
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 410, 350, NULL, "Press
+spacebar to continue....");
+ }
+ else
+ {
+ al_draw_bitmap(bg, bgx, 0, 0);//draw background
+ al_draw_textf(font, al_map_rgb(255, 255, 255), 50, 50, NULL, "HEALTH:
+%d SCORE: %d", life, score);
+ for (i = 0; i < amountofenemies; i++)
+ {
+ if (enemy[i].dir == false)
+ al_draw_bitmap(enemy[i].bitmap, enemy[i].x,
+enemy[i].y, 0);
+ else
+ al_draw_bitmap(enemy[i].bitmap, enemy[i].x,
+enemy[i].y, ALLEGRO_FLIP_HORIZONTAL);
+ }
+ if (left)//player faces left
+ al_draw_bitmap(player, playerx, playery,
+ALLEGRO_FLIP_HORIZONTAL);
+ if (right)//player faces right
+ al_draw_bitmap(player, playerx, playery, 0);
+ al_draw_bitmap(attack, attackx, attacky, 0);
+ al_draw_bitmap(platform, platx, platy, 0);
+ }
+
+ al_flip_display();//update display
+ }
+ }
+ //finish all imported tasks for good practise
+ al_destroy_display(display);
+ al_destroy_sample(sample);
+ al_uninstall_keyboard();
+ al_destroy_timer(timer);
+ for (i = 0; i < 27; i++)
+ al_destroy_bitmap(enemy[i].bitmap);
+ al_destroy_bitmap(player);
+ al_destroy_bitmap(attack);
+ al_destroy_bitmap(platform);
+ al_destroy_event_queue(queue);
+}
+//collision
+int collision(int x, int y, int playerx, int playery)
+{
+ dist = sqrt(double(pow((x - playerx), 2)) + double(pow((y - playery), 2)));
+ if (dist <= 50)
+ return 1;
+ else
+ return 0;
+} 
